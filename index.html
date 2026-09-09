@@ -997,6 +997,10 @@ function exportCalendar() {
 
   const appUrl = 'https://lokidawgz.github.io/cycle-sync1';
 
+  function icsEsc(str) {
+    return str.replace(/,/g, '\\,').replace(/;/g, '\\;');
+  }
+
   for (let cycleStart = 0; cycleStart < totalDays; cycleStart += cycleLength) {
     ranges.forEach(phase => {
       const eventStart = new Date(startDate);
@@ -1008,31 +1012,23 @@ function exportCalendar() {
       limit.setMonth(limit.getMonth() + months + 1);
       if (eventStart > limit) return;
 
-      const description = [
-        `${phase.icon} ${phase.name} Phase`,
-        '',
-        `Energy: ${phase.energyLabel}`,
-        `Mood: ${phase.mood}`,
-        '',
-        'COMMON SYMPTOMS',
-        phase.symptoms.join(', '),
-        '',
-        'BEST FOODS',
-        phase.foods.join(', '),
-        '',
-        'BEST WORKOUTS',
-        phase.exercise.join(', '),
-        '',
-        'TIP',
-        phase.tip,
-        '',
-        `Open Cycle Sync: ${appUrl}`
-      ].join('\\n');
+      const desc = icsEsc(
+        'Energy: ' + phase.energyLabel + ' | Mood: ' + phase.mood +
+        '\\nSymptoms: ' + phase.symptoms.join(' / ') +
+        '\\nFoods: ' + phase.foods.join(' / ') +
+        '\\nExercise: ' + phase.exercise.join(' / ') +
+        '\\n\\n' + appUrl
+      );
 
-      events.push({ title: `${phase.icon} ${phase.name} Phase`, start: eventStart, end: eventEnd, description });
+      events.push({
+        title: phase.name + ' Phase',
+        start: eventStart,
+        end: eventEnd,
+        description: desc
+      });
     });
 
-    // Add a reminder event 2 days before each predicted period
+    // Reminder 2 days before expected period
     const reminderDate = new Date(startDate);
     reminderDate.setDate(reminderDate.getDate() + cycleStart + cycleLength - 2);
     const reminderEnd = new Date(reminderDate);
@@ -1042,34 +1038,29 @@ function exportCalendar() {
     limit.setMonth(limit.getMonth() + months + 1);
     if (reminderDate <= limit) {
       events.push({
-        title: '🔔 Period expected soon — log it when it starts',
+        title: 'Period expected soon',
         start: reminderDate,
         end: reminderEnd,
-        description: [
-          'Your period is expected in about 2 days.',
-          '',
-          'When it starts, log it in Cycle Sync so your phases stay accurate:',
-          appUrl,
-          '',
-          '(If it is late, no worries — just log it whenever it arrives!)'
-        ].join('\\n')
+        description: icsEsc('Log it when it starts: ' + appUrl)
       });
     }
   }
 
   const icsLines = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//CycleSync//Period Tracker//EN',
-    'CALSCALE:GREGORIAN', 'X-WR-CALNAME:Cycle Sync',
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//CycleSync//EN',
+    'CALSCALE:GREGORIAN'
   ];
 
   events.forEach((evt, i) => {
     icsLines.push(
       'BEGIN:VEVENT',
-      `UID:cyclesync-${i}-${Date.now()}@cyclesync`,
-      `DTSTART;VALUE=DATE:${fmtDate(evt.start)}`,
-      `DTEND;VALUE=DATE:${fmtDate(evt.end)}`,
-      `SUMMARY:${evt.title}`,
-      `DESCRIPTION:${evt.description}`,
+      'UID:cs-' + i + '-' + Date.now() + '@cyclesync',
+      'DTSTART;VALUE=DATE:' + fmtDate(evt.start),
+      'DTEND;VALUE=DATE:' + fmtDate(evt.end),
+      'SUMMARY:' + icsEsc(evt.title),
+      'DESCRIPTION:' + evt.description,
       'TRANSP:TRANSPARENT',
       'END:VEVENT'
     );
