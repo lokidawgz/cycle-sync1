@@ -573,7 +573,7 @@ h1 {
 
     <button class="cal-btn" onclick="exportCalendar()">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      Export 3 months to calendar
+      Add phases to my Google Calendar
     </button>
 
     <!-- Current Phase Detail -->
@@ -995,6 +995,8 @@ function exportCalendar() {
   const totalDays = cycleLength * Math.ceil((months * 30) / cycleLength);
   const events = [];
 
+  const appUrl = 'https://lokidawgz.github.io/cycle-sync1';
+
   for (let cycleStart = 0; cycleStart < totalDays; cycleStart += cycleLength) {
     ranges.forEach(phase => {
       const eventStart = new Date(startDate);
@@ -1024,11 +1026,35 @@ function exportCalendar() {
         'TIP',
         phase.tip,
         '',
-        '— Cycle Sync'
+        `Open Cycle Sync: ${appUrl}`
       ].join('\\n');
 
       events.push({ title: `${phase.icon} ${phase.name} Phase`, start: eventStart, end: eventEnd, description });
     });
+
+    // Add a reminder event 2 days before each predicted period
+    const reminderDate = new Date(startDate);
+    reminderDate.setDate(reminderDate.getDate() + cycleStart + cycleLength - 2);
+    const reminderEnd = new Date(reminderDate);
+    reminderEnd.setDate(reminderEnd.getDate() + 1);
+
+    const limit = new Date(startDate);
+    limit.setMonth(limit.getMonth() + months + 1);
+    if (reminderDate <= limit) {
+      events.push({
+        title: '🔔 Period expected soon — log it when it starts',
+        start: reminderDate,
+        end: reminderEnd,
+        description: [
+          'Your period is expected in about 2 days.',
+          '',
+          'When it starts, log it in Cycle Sync so your phases stay accurate:',
+          appUrl,
+          '',
+          '(If it\\'s late, no worries — just log it whenever it arrives!)'
+        ].join('\\n')
+      });
+    }
   }
 
   const icsLines = [
