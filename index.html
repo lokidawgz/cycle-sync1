@@ -684,6 +684,13 @@ const PHASES = [
   }
 ];
 
+// ===== HELPERS =====
+// Parse "YYYY-MM-DD" as local date (not UTC) to avoid off-by-one timezone bugs
+function parseLocalDate(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 // ===== DATA STORAGE =====
 // Data shape: { periodLog: ["2026-09-01", "2026-08-03", ...], periodLength: 5 }
 function loadData() {
@@ -711,17 +718,17 @@ function loadData() {
 function saveData(data) {
   try {
     // Sort log newest first
-    data.periodLog.sort((a, b) => new Date(b) - new Date(a));
+    data.periodLog.sort((a, b) => parseLocalDate(b) - parseLocalDate(a));
     localStorage.setItem('cyclesync_v2', JSON.stringify(data));
   } catch(e) {}
 }
 
 function getCycleLengths(log) {
   if (log.length < 2) return [];
-  const sorted = [...log].sort((a, b) => new Date(a) - new Date(b));
+  const sorted = [...log].sort((a, b) => parseLocalDate(a) - parseLocalDate(b));
   const lengths = [];
   for (let i = 1; i < sorted.length; i++) {
-    const diff = Math.round((new Date(sorted[i]) - new Date(sorted[i-1])) / (1000*60*60*24));
+    const diff = Math.round((parseLocalDate(sorted[i]) - parseLocalDate(sorted[i-1])) / (1000*60*60*24));
     if (diff >= 15 && diff <= 60) lengths.push(diff); // sanity filter
   }
   return lengths;
@@ -735,7 +742,7 @@ function getAvgCycleLength(log) {
 
 function getLatestPeriod(log) {
   if (!log || log.length === 0) return null;
-  const sorted = [...log].sort((a, b) => new Date(b) - new Date(a));
+  const sorted = [...log].sort((a, b) => parseLocalDate(b) - parseLocalDate(a));
   return sorted[0];
 }
 
@@ -751,8 +758,7 @@ function getPhaseRanges(cycleLength, periodLength) {
 function getCurrentDay(lastPeriodDate, cycleLength) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
-  const start = new Date(lastPeriodDate);
-  start.setHours(0, 0, 0, 0);
+  const start = parseLocalDate(lastPeriodDate);
   const diff = Math.floor((now - start) / (1000 * 60 * 60 * 24));
   const day = ((diff % cycleLength) + cycleLength) % cycleLength;
   return day + 1;
@@ -864,7 +870,7 @@ function renderAllPhases(ranges) {
 }
 
 function renderPrediction(lastPeriod, cycleLength) {
-  const nextDate = new Date(lastPeriod);
+  const nextDate = parseLocalDate(lastPeriod);
   nextDate.setDate(nextDate.getDate() + cycleLength);
   const today = new Date();
   today.setHours(0,0,0,0);
@@ -902,15 +908,15 @@ function renderHistory(data) {
     </div>
   `;
 
-  const sorted = [...log].sort((a, b) => new Date(b) - new Date(a));
+  const sorted = [...log].sort((a, b) => parseLocalDate(b) - parseLocalDate(a));
   const sortedAsc = [...log].sort((a, b) => new Date(a) - new Date(b));
 
   document.getElementById('cycleLog').innerHTML = sorted.map((date, i) => {
     const ascIdx = sortedAsc.indexOf(date);
     let lengthStr = '';
     if (ascIdx > 0) {
-      const prev = new Date(sortedAsc[ascIdx - 1]);
-      const curr = new Date(date);
+      const prev = parseLocalDate(sortedAsc[ascIdx - 1]);
+      const curr = parseLocalDate(date);
       const diff = Math.round((curr - prev) / (1000*60*60*24));
       lengthStr = `${diff}-day cycle`;
     } else {
@@ -918,7 +924,7 @@ function renderHistory(data) {
     }
     return `
       <li>
-        <span class="cycle-date">${formatDateShort(new Date(date))}</span>
+        <span class="cycle-date">${formatDateShort(parseLocalDate(date))}</span>
         <span class="cycle-length">${lengthStr}</span>
         <button class="delete-btn" onclick="deletePeriod('${date}')" title="Remove">×</button>
       </li>
@@ -969,7 +975,7 @@ function confirmLog() {
 }
 
 window.deletePeriod = function(date) {
-  if (!confirm(`Remove ${formatDateShort(new Date(date))} from your log?`)) return;
+  if (!confirm(`Remove ${formatDateShort(parseLocalDate(date))} from your log?`)) return;
   const data = loadData();
   if (!data) return;
   data.periodLog = data.periodLog.filter(d => d !== date);
@@ -989,8 +995,7 @@ function exportCalendar() {
   const cycleLength = getAvgCycleLength(data.periodLog);
   const periodLength = data.periodLength || 5;
   const ranges = getPhaseRanges(cycleLength, periodLength);
-  const startDate = new Date(lastPeriod);
-  startDate.setHours(0,0,0,0);
+  const startDate = parseLocalDate(lastPeriod);
   const months = 3;
   const totalDays = cycleLength * Math.ceil((months * 30) / cycleLength);
   const events = [];
